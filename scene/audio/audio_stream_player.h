@@ -57,6 +57,8 @@ private:
 	bool autoplay = false;
 	StringName bus = SceneStringNames::get_singleton()->Master;
 	int max_polyphony = 1;
+	int prev_beat = -1;
+	int prev_bar = -1;
 
 	MixTarget mix_target = MIX_TARGET_STEREO;
 
@@ -106,6 +108,11 @@ public:
 
 	bool has_stream_playback();
 	Ref<AudioStreamPlayback> get_stream_playback();
+
+	int get_current_beat() const;
+	int get_current_bar() const;
+	float get_beat_progress() const;
+	float get_bar_progress() const;
 
 	AudioStreamPlayer();
 	~AudioStreamPlayer();

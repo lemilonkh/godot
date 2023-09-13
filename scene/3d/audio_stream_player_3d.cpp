@@ -307,9 +307,27 @@ void AudioStreamPlayer3D::_notification(int p_what) {
 					// This node is no longer actively playing audio.
 					active.clear();
 					set_physics_process_internal(false);
+					prev_beat = -1;
+					prev_bar = -1;
 				}
 				if (!playbacks_to_remove.is_empty()) {
 					emit_signal(SNAME("finished"));
+				}
+				if (!stream_playbacks.is_empty() && stream->get_bpm() > 0) {
+					Ref<AudioStreamPlayback> playback = stream_playbacks[stream_playbacks.size() - 1];
+					int current_bar = playback->get_current_bar();
+
+					if (current_bar >= 0) {
+						int current_beat = playback->get_current_beat();
+						if (current_beat != prev_beat) {
+							emit_signal(SNAME("beat_changed"), current_beat);
+							prev_beat = current_beat;
+						}
+						if (current_bar != prev_bar) {
+							emit_signal(SNAME("bar_changed"), current_bar);
+							prev_bar = current_bar;
+						}
+					}
 				}
 			}
 
@@ -601,6 +619,8 @@ void AudioStreamPlayer3D::stop() {
 	stream_playbacks.clear();
 	active.clear();
 	set_physics_process_internal(false);
+	prev_beat = -1;
+	prev_bar = -1;
 }
 
 bool AudioStreamPlayer3D::is_playing() const {
@@ -791,6 +811,34 @@ Ref<AudioStreamPlayback> AudioStreamPlayer3D::get_stream_playback() {
 	return stream_playbacks[stream_playbacks.size() - 1];
 }
 
+int AudioStreamPlayer3D::get_current_beat() const {
+	if (stream_playbacks.is_empty()) {
+		return 0;
+	}
+	return stream_playbacks[stream_playbacks.size() - 1]->get_current_beat();
+}
+
+int AudioStreamPlayer3D::get_current_bar() const {
+	if (stream_playbacks.is_empty()) {
+		return 0;
+	}
+	return stream_playbacks[stream_playbacks.size() - 1]->get_current_bar();
+}
+
+float AudioStreamPlayer3D::get_beat_progress() const {
+	if (stream_playbacks.is_empty()) {
+		return 0;
+	}
+	return stream_playbacks[stream_playbacks.size() - 1]->get_beat_progress();
+}
+
+float AudioStreamPlayer3D::get_bar_progress() const {
+	if (stream_playbacks.is_empty()) {
+		return 0;
+	}
+	return stream_playbacks[stream_playbacks.size() - 1]->get_bar_progress();
+}
+
 void AudioStreamPlayer3D::set_max_polyphony(int p_max_polyphony) {
 	if (p_max_polyphony > 0) {
 		max_polyphony = p_max_polyphony;
@@ -889,6 +937,11 @@ void AudioStreamPlayer3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("has_stream_playback"), &AudioStreamPlayer3D::has_stream_playback);
 	ClassDB::bind_method(D_METHOD("get_stream_playback"), &AudioStreamPlayer3D::get_stream_playback);
 
+	ClassDB::bind_method(D_METHOD("get_current_beat"), &AudioStreamPlayer3D::get_current_beat);
+	ClassDB::bind_method(D_METHOD("get_current_bar"), &AudioStreamPlayer3D::get_current_bar);
+	ClassDB::bind_method(D_METHOD("get_beat_progress"), &AudioStreamPlayer3D::get_beat_progress);
+	ClassDB::bind_method(D_METHOD("get_bar_progress"), &AudioStreamPlayer3D::get_bar_progress);
+
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "stream", PROPERTY_HINT_RESOURCE_TYPE, "AudioStream"), "set_stream", "get_stream");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "attenuation_model", PROPERTY_HINT_ENUM, "Inverse,Inverse Square,Logarithmic,Disabled"), "set_attenuation_model", "get_attenuation_model");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "volume_db", PROPERTY_HINT_RANGE, "-80,80,suffix:dB"), "set_volume_db", "get_volume_db");
@@ -923,6 +976,8 @@ void AudioStreamPlayer3D::_bind_methods() {
 	BIND_ENUM_CONSTANT(DOPPLER_TRACKING_PHYSICS_STEP);
 
 	ADD_SIGNAL(MethodInfo("finished"));
+	ADD_SIGNAL(MethodInfo("beat_changed", PropertyInfo(Variant::INT, "beat")));
+	ADD_SIGNAL(MethodInfo("bar_changed", PropertyInfo(Variant::INT, "bar")));
 }
 
 AudioStreamPlayer3D::AudioStreamPlayer3D() {
